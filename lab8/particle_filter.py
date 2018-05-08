@@ -1,20 +1,12 @@
 import math
-import numpy as np
-import random
+import numpy
 
 from grid import *
 from particle import Particle
 from utils import *
 from setting import *
+from scipy.stats import norm
 
-# translational difference allow
-Diff_trans = 1.5
-# orientation difference allow in degree
-Diff_rot = 15
-
-def probability(mean, sigma, val):
-    return (1/math.sqrt(2*math.pi*math.pow(sigma,2)))*math.exp(-math.pow(val-mean, 2)/(2*math.pow(sigma,2)))
-    
 def motion_update(particles, odom):
     """ Particle filter motion update
 
@@ -26,7 +18,6 @@ def motion_update(particles, odom):
         Returns: the list of particles represents belief \tilde{p}(x_{t} | u_{t})
                 after motion update
     """
-    
     motion_particles = []
                    
     for particle in particles[:]:
@@ -43,24 +34,6 @@ def motion_update(particles, odom):
             
     return motion_particles
 
-def systematic_resample(weights):
-    N = len(weights)
-
-    # make N subdivisions, choose positions 
-    # with a consistent random offset
-    positions = (np.arange(N) + random.random()) / N
-
-    indexes = np.zeros(N, 'i')
-    cumulative_sum = np.cumsum(weights)
-    i, j = 0, 0
-    while i < N:
-        if positions[i] < cumulative_sum[j]:
-            indexes[i] = j
-            i += 1
-        else:
-            j += 1
-    return indexes
-    
 # ------------------------------------------------------------------------
 def measurement_update(particles, measured_marker_list, grid):
     """ Particle filter measurement update
@@ -86,100 +59,24 @@ def measurement_update(particles, measured_marker_list, grid):
         Returns: the list of particles represents belief p(x_{t} | u_{t})
                 after measurement update
     """
-        
-    measured_particles = []
-    
-    weight_particles = []
-    
-    insideGrid_particles = []
-    
-    for particle in particles[:]:
-        if grid.is_in(particle.x, particle.y):            
-            weight_particles.append(1)
-        else :
-            weight_particles.append(0)
-    
-    #print("particles")
     #print(particles)
-        
-    # avoid round-off to zero
-
-    weight_particles = [float(i) + 1.e-300 for i in weight_particles]
-    
-    norm_weight_particles = [float(i)/sum(weight_particles) for i in weight_particles]
-    
-    indexes = systematic_resample(norm_weight_particles)
-        
-    for index in indexes[:]:
-        insideGrid_particles.append(particles[index])
-    
-    weight_particles = [1.0] * len(weight_particles)
-    
-    #calculate mean, sigma for grid markers
-    mean_x = 0
-    mean_y = 0
-    mean_h = 0
-    sigma_x = 0
-    sigma_y = 0
-    sigma_h = 0
-    for gmarker in grid.markers[:]:
-        m_x, m_y, m_h = parse_marker_info(gmarker[0], gmarker[1], gmarker[2])
-        mean_x += m_x
-        mean_y += m_y
-        mean_h += m_h
-    mean_x = mean_x/len(grid.markers)
-    mean_y = mean_y/len(grid.markers)
-    mean_h = mean_h/len(grid.markers)
-    
-    for gmarker in grid.markers[:]:
-        m_x, m_y, m_h = parse_marker_info(gmarker[0], gmarker[1], gmarker[2])
-        sigma_x += math.pow(m_x - mean_x, 2)
-        sigma_y += math.pow(m_y - mean_x, 2)
-        sigma_h += math.pow(m_h - mean_x, 2)
-    sigma_x = math.sqrt(sigma_x/len(grid.markers))
-    sigma_y = math.sqrt(sigma_y/len(grid.markers))
-    sigma_h = math.sqrt(sigma_h/len(grid.markers))
-    
-    for idx, insideGrid_particle in enumerate(insideGrid_particles):
-        #num_markers_observed = 0
+    weight_particles = [1/len(particles)]*len(particles)
+    for idx, particle in enumerate(particles):
+        particle_marker_list = particle.read_markers(grid)
+        rmarker_weight = 1.0
         for rmarker in measured_marker_list[:]:
-            #print("rmarker")
-            #print(rmarker)
-            alpha = (math.pi*insideGrid_particle.h)/180
-            marker_x = insideGrid_particle.x + (rmarker[0]*math.cos(alpha) - rmarker[1]*math.sin(alpha)) 
-            marker_y = insideGrid_particle.y + (rmarker[0]*math.sin(alpha) + rmarker[1]*math.cos(alpha))
-            marker_h = insideGrid_particle.h + rmarker[2]
-            #print("marker")
-            #print(marker_x, marker_y, marker_h)
-            weight_particles[idx] *= probability(mean_x, sigma_x, marker_x)*probability(mean_y, sigma_y, marker_y)*probability(mean_h, sigma_h, marker_h)
-
-
-        """
-            for gmarker in grid.markers[:]:
-                m_x, m_y, m_h = parse_marker_info(gmarker[0], gmarker[1], gmarker[2])
-                if grid_distance(marker_x, marker_y, m_x, m_y) < Diff_trans \
-                        and math.fabs(marker_h - m_h) < Diff_rot:
-                    num_markers_observed += 1
-                    #print("num_markers_observed = ")
-                    #print(num_markers_observed)
-                    break
-        if len(measured_marker_list) == num_markers_observed:
-            print("insideGrid_particle=")
-            print(insideGrid_particle)
-            weight_particles[idx] = weight_particles[idx]+1.0
-        """
-            
-    weight_particles = [float(i) + 1.e-300 for i in weight_particles]
+            # pdf(x, loc=0, scale=1) is proabability x with mean as loc and variance as scale
+            # https://docs.scipy.org/doc/scipy-0.16.1/reference/generated/scipy.stats.norm.html
+            pmarker_weight = 0.0
+            for pmarker in particle_marker_list[:]: 
+                pmarker_weight += norm.pdf(pmarker[0],rmarker[0],MARKER_TRANS_SIGMA)*norm.pdf(pmarker[1],rmarker[1],MARKER_TRANS_SIGMA)*norm.pdf(pmarker[2],rmarker[2],MARKER_ROT_SIGMA)            
+            rmarker_weight *= pmarker_weight            
+        weight_particles[idx] += rmarker_weight
+        
     norm_weight_particles = [float(i)/sum(weight_particles) for i in weight_particles]
+
+    measured_particles = numpy.random.choice(particles, len(particles), p = norm_weight_particles)
     
-    indexes = systematic_resample(norm_weight_particles)
-        
-    for index in indexes[:]:
-        measured_particles.append(insideGrid_particles[index])
-        
-    #print("particles after resampling")
     #print(measured_particles)
-        
-    return measured_particles   
 
-
+    return measured_particles
