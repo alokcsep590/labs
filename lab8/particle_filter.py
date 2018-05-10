@@ -117,59 +117,34 @@ def measurement_update(particles, measured_marker_list, grid):
                 after measurement update
     """
     
-    #print("particles=")
-    #print(particles)
 
-    weight_particles = [1.0/len(particles)]*len(particles)
-    for idx, particle in enumerate(particles):
+    weight_particles = []
+    for particle in particles:
         if  grid.is_in(particle.x, particle.y):
-            found = False
-            particle_marker_list = particle.read_markers(grid)
-            rmarker_weight = 1.0
-            for rmarker in measured_marker_list[:]:
-                # pdf(x, loc=0, scale=1) is proabability x with mean as loc and variance as scale
-                # https://docs.scipy.org/doc/scipy-0.16.1/reference/generated/scipy.stats.norm.html
-                pmarker_weight = 1.e-300
-                for pmarker in particle_marker_list[:]: 
-                    pmarker_weight += len(particles)*norm.pdf(pmarker[0],rmarker[0],MARKER_TRANS_SIGMA)*norm.pdf(pmarker[1],rmarker[1],MARKER_TRANS_SIGMA)*norm.pdf(pmarker[2]%360,rmarker[2],MARKER_ROT_SIGMA)            
-                    found = True
-                rmarker_weight *= pmarker_weight
-    
-            if found:
-                weight_particles[idx] += rmarker_weight            
-
-            """    
-            if (len(measured_marker_list)==0 and len(particle_marker_list) ==0):
-                None
-            elif (len(measured_marker_list)==len(particle_marker_list)):
-                weight_particles[idx] += 10*rmarker_weight
-            elif weight_particles[idx] > rmarker_weight:
-                weight_particles[idx] -= 10*rmarker_weight
-            else:
-                weight_particles[idx] = 1.e-300          
-            """
+            rmarker_weight = 1
         else:
-            weight_particles[idx] = 1.e-300
+            rmarker_weight = 0
+            
+        particle_marker_list = particle.read_markers(grid)
+        for rmarker in measured_marker_list[:]:
+            pmarker_weight = 0
+            for pmarker in particle_marker_list[:]: 
+                pmarker_weight += norm.pdf(rmarker[0],pmarker[0],MARKER_TRANS_SIGMA)*norm.pdf(rmarker[1],pmarker[1],MARKER_TRANS_SIGMA)*norm.pdf(rmarker[2],pmarker[2],MARKER_ROT_SIGMA)            
+            rmarker_weight *= pmarker_weight
+        weight_particles.append(rmarker_weight)
     
-    #print("weight_particles=")
-    #print(weight_particles)    
     norm_weight_particles = [float(i)/sum(weight_particles) for i in weight_particles]
 
-    #measured_particles = np.random.choice(copy.deepcopy(particles), len(particles), p = norm_weight_particles)
+    resample_count = int(0.98*len(particles))
+    measured_particles = np.random.choice(particles, resample_count, p = norm_weight_particles)
     
-    #print("norm_weight_particles=")
-    #print(norm_weight_particles)
+    new_measured_particles = []
+    for m_particle in measured_particles:
+        new_measured_particles.append(copy.deepcopy(m_particle))
+        
+        
+    new_particles = Particle.create_random(len(particles)-resample_count, grid)
+    for new_particle in new_particles:
+        new_measured_particles.append(copy.deepcopy(new_particle))
     
-    
-    indexes = stratified_resample(norm_weight_particles)
-    #print("indexes")
-    #print(indexes)
-    measured_particles = []
-    for index in indexes[:]:
-        measured_particles.append(copy.deepcopy(particles[index]))
-    
-    
-    #print("measured_particles=")
-    #print(measured_particles)
-    
-    return measured_particles
+    return new_measured_particles
