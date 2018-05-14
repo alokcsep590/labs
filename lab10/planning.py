@@ -18,7 +18,7 @@ class Node:
         self.point = coord
         self.parent = None
         self.H = 0.
-        self.G = 1000.
+        self.G = math.inf
 
     def __str__(self):
         return str(self.point[0]) + "," + str(self.point[1]) + "," + str(self.H) + "," + str(self.G)
