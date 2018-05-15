@@ -11,6 +11,7 @@ import threading
 from queue import PriorityQueue
 import math
 import cozmo
+from cozmo.util import degrees, Angle, Pose, distance_mm, speed_mmps
 import time
 
 class Node:  
@@ -133,7 +134,56 @@ def cozmoBehavior(robot: cozmo.robot.Robot):
     global grid, stopevent
     
     while not stopevent.is_set():
-        pass # Your code here
+        scale = 15.0
+        cube1 = robot.world.get_light_cube(1)
+        cube2 = robot.world.get_light_cube(2)
+        cube3 = robot.world.get_light_cube(3)
+        
+        print("cube1="+str(cube1))
+        print("cube2="+str(cube2))
+        print("cube3="+str(cube3))
+        print("cube1="+str(cube1.is_visible))
+        print("cube2="+str(cube2.is_visible))
+        print("cube3="+str(cube3.is_visible))
+        
+        if cube1.is_visible:
+            cube1x = math.ceil(cube1.pose.position.x/scale)
+            cube1y = math.ceil(cube1.pose.position.y/scale)
+            grid.addObstacle((cube1x, cube1y))
+            for neighbor in grid.getNeighbors((cube1x, cube1y)):
+                grid.addObstacle(neighbor[0])
+            grid.addGoal((cube1x+3, cube1y+3))
+            
+        if cube2.is_visible:
+            cube2x = math.ceil(cube2.pose.position.x/scale)
+            cube2y = math.ceil(cube2.pose.position.y/scale)
+            grid.addObstacle((cube2x, cube2y))
+            for neighbor in grid.getNeighbors((cube2x, cube2y)):
+                grid.addObstacle(neighbor[0])
+        
+        if cube3.is_visible:
+            cube3x = math.ceil(cube3.pose.position.x/scale)
+            cube3y = math.ceil(cube3.pose.position.y/scale)
+            grid.addObstacle((cube3x, cube3y))
+            for neighbor in grid.getNeighbors((cube3x, cube3y)):
+                grid.addObstacle(neighbor[0])
+        
+        astar(grid, heuristic)
+        for step in grid.getPath():
+            robot.go_to_pose(Pose(step[0]*scale,step[1]*scale,0,angle_z=degrees(0))).wait_for_completed()
+        
+        #time.sleep(3)
+        #cube1.pose.rotation.angle_z.degrees
+        #robot.go_to_pose(Pose((grid.getGoals()[0][0]-6)*scale,(grid.getGoals()[0][1]-6)*scale,0,angle_z=degrees(45))).wait_for_completed()
+        
+        #robot.turn_in_place(degrees(20), speed=degrees(5)).wait_for_completed()
+        #robot.drive_straight(distance_mm(200), speed_mmps(25)).wait_for_completed()
+        
+        #astar(grid, heuristic)
+        #robot.go_to_pose(Pose(grid.getGoals()[0][0]*scale,grid.getGoals()[0][1]*scale,0,angle_z=degrees(0))).wait_for_completed()
+        
+        #print(grid.getGoals())
+
 
 
 ######################## DO NOT MODIFY CODE BELOW THIS LINE ####################################
