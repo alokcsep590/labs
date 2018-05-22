@@ -134,56 +134,53 @@ def cozmoBehavior(robot: cozmo.robot.Robot):
     global grid, stopevent
     
     while not stopevent.is_set():
-        scale = 15.0
+        grid.clearStart()
+        grid.setStart((math.ceil(robot.pose.position.x/grid.scale), math.ceil(robot.pose.position.y/grid.scale)))
+        
         cube1 = robot.world.get_light_cube(1)
         cube2 = robot.world.get_light_cube(2)
         cube3 = robot.world.get_light_cube(3)
         
-        print("cube1="+str(cube1))
-        print("cube2="+str(cube2))
-        print("cube3="+str(cube3))
-        print("cube1="+str(cube1.is_visible))
-        print("cube2="+str(cube2.is_visible))
-        print("cube3="+str(cube3.is_visible))
+        print("cube1="+str(cube1.is_visible)+str(cube1))
+        print("cube2="+str(cube2.is_visible)+str(cube2))
+        print("cube3="+str(cube3.is_visible)+str(cube3))
         
         if cube1.is_visible:
-            cube1x = math.ceil(cube1.pose.position.x/scale)
-            cube1y = math.ceil(cube1.pose.position.y/scale)
-            grid.addObstacle((cube1x, cube1y))
-            for neighbor in grid.getNeighbors((cube1x, cube1y)):
-                grid.addObstacle(neighbor[0])
-            grid.addGoal((cube1x+3, cube1y+3))
+            cube1x = math.ceil(cube1.pose.position.x/grid.scale)
+            cube1y = math.ceil(cube1.pose.position.y/grid.scale)
+            cube1angle = cube1.pose.rotation.angle_z.degrees
             
+            for x in range(cube1x-2, cube1x+3):
+                for y in range(cube1y-2, cube1y+3):
+                    grid.addObstacle((x, y))
+            
+            rx = math.ceil((cube1.pose.position.x + (100*abs(math.cos(cube1.pose.rotation.angle_z.radians))))/grid.scale)
+            ry = math.ceil((cube1.pose.position.y + (100*abs(math.sin(cube1.pose.rotation.angle_z.radians))))/grid.scale)
+            grid.addGoal((rx, ry))
+               
         if cube2.is_visible:
-            cube2x = math.ceil(cube2.pose.position.x/scale)
-            cube2y = math.ceil(cube2.pose.position.y/scale)
-            grid.addObstacle((cube2x, cube2y))
-            for neighbor in grid.getNeighbors((cube2x, cube2y)):
-                grid.addObstacle(neighbor[0])
+            cube2x = math.ceil(cube2.pose.position.x/grid.scale)
+            cube2y = math.ceil(cube2.pose.position.y/grid.scale)
+            for x in range(cube2x-2, cube2x+3):
+                for y in range(cube2y-2, cube2y+3):
+                    grid.addObstacle((x, y))
         
         if cube3.is_visible:
-            cube3x = math.ceil(cube3.pose.position.x/scale)
-            cube3y = math.ceil(cube3.pose.position.y/scale)
-            grid.addObstacle((cube3x, cube3y))
-            for neighbor in grid.getNeighbors((cube3x, cube3y)):
-                grid.addObstacle(neighbor[0])
+            cube3x = math.ceil(cube3.pose.position.x/grid.scale)
+            cube3y = math.ceil(cube3.pose.position.y/grid.scale)
+            for x in range(cube3x-2, cube3x+3):
+                for y in range(cube3y-2, cube3y+3):
+                    grid.addObstacle((x, y))
         
         astar(grid, heuristic)
         for step in grid.getPath():
-            robot.go_to_pose(Pose(step[0]*scale,step[1]*scale,0,angle_z=degrees(0))).wait_for_completed()
+            print(step[0]*grid.scale,step[1]*grid.scale)
+            robot.go_to_pose(Pose(step[0]*grid.scale,step[1]*grid.scale,0,angle_z=degrees(0))).wait_for_completed()
         
-        #time.sleep(3)
-        #cube1.pose.rotation.angle_z.degrees
-        #robot.go_to_pose(Pose((grid.getGoals()[0][0]-6)*scale,(grid.getGoals()[0][1]-6)*scale,0,angle_z=degrees(45))).wait_for_completed()
         
-        #robot.turn_in_place(degrees(20), speed=degrees(5)).wait_for_completed()
-        #robot.drive_straight(distance_mm(200), speed_mmps(25)).wait_for_completed()
+        robot.turn_in_place(degrees(180 + cube1angle%90)).wait_for_completed()
         
-        #astar(grid, heuristic)
-        #robot.go_to_pose(Pose(grid.getGoals()[0][0]*scale,grid.getGoals()[0][1]*scale,0,angle_z=degrees(0))).wait_for_completed()
-        
-        #print(grid.getGoals())
-
+        time.sleep(10)
 
 
 ######################## DO NOT MODIFY CODE BELOW THIS LINE ####################################
