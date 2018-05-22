@@ -46,7 +46,7 @@ class ImageClassifier:
         for img in data:
             #gray = color.rgb2gray(img)
             edged = imutils.auto_canny(img)    
-            (H, hogImage) = feature.hog(edged, orientations=9, pixels_per_cell=(90, 90), cells_per_block=(2, 2), transform_sqrt=True, block_norm="L2-Hys", visualise=True)
+            (H, hogImage) = feature.hog(edged, orientations=9, pixels_per_cell=(90, 90), cells_per_block=(2, 2), transform_sqrt=True, visualise=True)
         
             #viewer = ImageViewer(hogImage)
             #viewer.show()    
@@ -63,7 +63,7 @@ class ImageClassifier:
         ######## YOUR CODE HERE
         ########################
         
-        self.classifer = KNeighborsClassifier(n_neighbors=1)
+        self.classifer = KNeighborsClassifier(n_neighbors=5, weights='distance', algorithm='kd_tree')
         self.classifer.fit(train_data, train_labels)
 
     def predict_labels(self, data):
